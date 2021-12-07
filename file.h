@@ -11,11 +11,9 @@
 class File
 {
 private:
-	std::queue<std::unique_ptr<Chunk>> chunks;
+	std::queue<std::unique_ptr<Chunk>> fifo;
 	std::FILE* f_in = nullptr;
-	std::condition_variable cv;
-	std::mutex m;
-	std::mutex m2;
+	std::mutex m_fifo;
 	sem_t sem;
 	
 	static void thead_read(File *file);	

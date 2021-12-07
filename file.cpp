@@ -13,7 +13,9 @@ void File::thead_read(File *file)
 	do {
 		auto chunk = std::make_unique<Chunk>();
 		bytes_read = chunk->read(file->f_in);
-		file->chunks.push(std::move(chunk));
+		file->m_fifo.lock();
+		file->fifo.push(std::move(chunk));
+		file->m_fifo.unlock();
 		sem_post(&file->sem);
 	}while(bytes_read);
 }
@@ -40,10 +42,15 @@ bool File::copy_to(const std::string &name)
 		while(1) {
 			sem_wait(&sem);
 			std::unique_ptr<Chunk> chunk;
-			if(chunks.size()) {
-				chunk = std::move(chunks.front());
-				chunks.pop();
-				auto size_copied = chunk->size();
+			m_fifo.lock();
+			if(fifo.size()) {
+				chunk = std::move(fifo.front());
+				fifo.pop();
+			}
+			m_fifo.unlock();
+			
+			if(chunk) {
+				const auto size_copied = chunk->size();
 				if(size_copied == 0) {
 					break;
 				}
