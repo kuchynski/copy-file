@@ -45,7 +45,7 @@ bool File::copy_to(const std::string &name)
 	size_t total_size = 0;
 		
 	if(f_in && f_out) {
-		auto time_begin = std::chrono::high_resolution_clock::now();
+		const auto time_begin = std::chrono::high_resolution_clock::now();
 		std::thread t{thead_read, this};
 		
 		while(1) {
@@ -73,11 +73,16 @@ bool File::copy_to(const std::string &name)
 		
 		fclose(f_out);
 		
-		auto time_end = std::chrono::high_resolution_clock::now();
-		auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_begin).count();
+		const auto time_end = std::chrono::high_resolution_clock::now();
+		const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_begin).count();
+		const auto MILLISECONDS_PER_SECOND = 1000;
+		const auto speed_bytes = MILLISECONDS_PER_SECOND * total_size / duration;
+		const auto BYTES_PER_KILOBYTE = 1024;
+		const auto speed_Mbytes = speed_bytes / BYTES_PER_KILOBYTE / BYTES_PER_KILOBYTE;
+		std::cout << "speed " << speed_Mbytes << " MB/s" << std::endl;
 		
-		std::cout << "copied " << total_size << " bytes " << duration << std::endl;
 		t.join();
+		
 		return true;
 	}		
 		
