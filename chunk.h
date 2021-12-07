@@ -9,6 +9,7 @@
 class Chunk
 {
 private:
+	// The data is stored here
 	std::array<char, CHUNK_SIZE> buf;
 	size_t size_filled = 0;
 public:
