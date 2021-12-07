@@ -12,6 +12,7 @@ class File
 {
 private:
 	std::queue<std::unique_ptr<Chunk>> fifo;
+	std::queue<std::unique_ptr<Chunk>> fifo_free;
 	std::FILE* f_in = nullptr;
 	std::mutex m_fifo;
 	sem_t sem;

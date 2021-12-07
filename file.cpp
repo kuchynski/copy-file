@@ -8,10 +8,19 @@
 void File::thead_read(File *file)
 {
 	fseek(file->f_in, 0, SEEK_SET);
-	size_t bytes_read = 1;
+	size_t bytes_read;
 	
 	do {
-		auto chunk = std::make_unique<Chunk>();
+		std::unique_ptr<Chunk> chunk;
+		file->m_fifo.lock();
+		if(file->fifo_free.size()) {
+			chunk = std::move(file->fifo_free.front());
+			file->fifo_free.pop();
+		}
+		file->m_fifo.unlock();
+		if(chunk == nullptr) {
+			chunk = std::make_unique<Chunk>();
+		}
 		bytes_read = chunk->read(file->f_in);
 		file->m_fifo.lock();
 		file->fifo.push(std::move(chunk));
@@ -56,6 +65,9 @@ bool File::copy_to(const std::string &name)
 				}
 				total_size += size_copied;
 				chunk->write(f_out);
+				m_fifo.lock();
+				fifo_free.push(std::move(chunk));
+				m_fifo.unlock();
 			}	
 		}
 		
