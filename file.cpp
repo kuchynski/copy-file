@@ -93,14 +93,16 @@ bool File::copy_to(const std::string &name)
 	// Step 5. Let's calculate a performance, maybe it's not so bad
 		const auto time_end = std::chrono::high_resolution_clock::now();
 		const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(time_end - time_begin).count();
-		const auto MICROSECONDS_PER_SECOND = 1000000;
-		const auto speed_bytes = duration? MICROSECONDS_PER_SECOND * total_size / duration : 0;
-		const auto BYTES_PER_KILOBYTE = 1024;
-		auto speed_Kbytes = speed_bytes / BYTES_PER_KILOBYTE;
-		if(speed_Kbytes > BYTES_PER_KILOBYTE)
-			std::cout << "speed " << speed_Kbytes / BYTES_PER_KILOBYTE << " MB/s" << std::endl;
-		else
-			std::cout << "speed " << speed_Kbytes << " KB/s" << std::endl;
+		if(duration) { // no duration - no result
+			const auto MICROSECONDS_PER_SECOND = 1000000;
+			const auto speed_bytes = MICROSECONDS_PER_SECOND * total_size / duration;
+			const auto BYTES_PER_KILOBYTE = 1024;
+			auto speed_Kbytes = speed_bytes / BYTES_PER_KILOBYTE;
+			if(speed_Kbytes > BYTES_PER_KILOBYTE)
+				std::cout << "speed " << speed_Kbytes / BYTES_PER_KILOBYTE << " MB/s" << std::endl;
+			else
+				std::cout << "speed " << speed_Kbytes << " KB/s" << std::endl;
+		}
 		
 		t.join();
 		
