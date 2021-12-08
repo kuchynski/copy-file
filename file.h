@@ -16,12 +16,13 @@ private:
 	std::FILE* f_in = nullptr;
 	std::mutex m_fifo;
 	sem_t sem;
+	size_t max_chunk;
 	
 	static void thead_read(File *file);	
 	
 public:
 	File() = delete;
-	explicit File(const std::string &name);
+	explicit File(const std::string &name, size_t mc = 64);
 	~File();
 	
 	explicit operator bool() const;

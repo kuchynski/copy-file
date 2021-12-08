@@ -5,11 +5,13 @@
 
 #include "file.h"
 
+using namespace std::literals::chrono_literals;
+
 void File::thead_read(File *file)
 {
+	bool it_is_not_last_chunk = false;
 	// Step 3. Read
 	fseek(file->f_in, 0, SEEK_SET);
-	size_t bytes_read;
 	
 	do {
 	// Step 3.1.1 Get free chunk 
@@ -22,22 +24,28 @@ void File::thead_read(File *file)
 		file->m_fifo.unlock();
 	// Step 3.1.2 or create it
 		if(chunk == nullptr) {
-			chunk = std::make_unique<Chunk>();
+			if(file->fifo.size() < file->max_chunk)
+				chunk = std::make_unique<Chunk>();
+			else
+				std::this_thread::sleep_for(1ms);
 		}
+
+		if(chunk) {
 	// Step 3.2 Read file
 	//			bytes_read == 0 means the end of the file
-		bytes_read = chunk->read(file->f_in);
+			it_is_not_last_chunk = chunk->read(file->f_in);
 	// Step 3.3 Push chunk to the fifo
-		file->m_fifo.lock();
-		file->fifo.push(std::move(chunk));
-		file->m_fifo.unlock();
+			file->m_fifo.lock();
+			file->fifo.push(std::move(chunk));
+			file->m_fifo.unlock();
 	// Step 3.4 Inform the Write thread about it
-		sem_post(&file->sem);
+			sem_post(&file->sem);
+		}
 	// 			and go read again
-	}while(bytes_read);
+	}while(it_is_not_last_chunk);
 }
 	
-File::File(const std::string &name)
+File::File(const std::string &name, size_t mc) : max_chunk(mc)
 {
 	// Step 1.1 Open the source file
 	f_in = fopen(name.c_str(), "rb");
@@ -52,7 +60,8 @@ bool File::copy_to(const std::string &name)
 {
 	// Step 1.2 Open the destination file
 	std::FILE* f_out = fopen(name.c_str(), "wb");
-	size_t total_size = 0;
+	size_t total_size = 0;	
+	
 		
 	if(f_in && f_out) {
 		const auto time_begin = std::chrono::high_resolution_clock::now();

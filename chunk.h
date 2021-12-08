@@ -4,7 +4,7 @@
 #include <array>
 #include <cstdio>
 
-#define CHUNK_SIZE 4096
+#define CHUNK_SIZE 4096*16
 
 class Chunk
 {
@@ -13,10 +13,10 @@ private:
 	std::array<char, CHUNK_SIZE> buf;
 	size_t size_filled = 0;
 public:
-	size_t read(std::FILE* f)
+	bool read(std::FILE* f)
 	{
 		size_filled = std::fread(&buf[0], sizeof(char), CHUNK_SIZE, f);
-		return size_filled;
+		return size_filled > 0;
 	}
 	
 	bool write(std::FILE* f) const
