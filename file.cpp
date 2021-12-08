@@ -9,7 +9,7 @@ using namespace std::literals::chrono_literals;
 
 void File::thead_read(File *file)
 {
-	bool it_is_not_last_chunk = false;
+	bool it_is_not_the_last_chunk = true;
 	// Step 3. Read
 	fseek(file->f_in, 0, SEEK_SET);
 	
@@ -33,7 +33,7 @@ void File::thead_read(File *file)
 		if(chunk) {
 	// Step 3.2 Read file
 	//			bytes_read == 0 means the end of the file
-			it_is_not_last_chunk = chunk->read(file->f_in);
+			it_is_not_the_last_chunk = chunk->read(file->f_in);
 	// Step 3.3 Push chunk to the fifo
 			file->m_fifo.lock();
 			file->fifo.push(std::move(chunk));
@@ -42,7 +42,7 @@ void File::thead_read(File *file)
 			sem_post(&file->sem);
 		}
 	// 			and go read again
-	}while(it_is_not_last_chunk);
+	}while(it_is_not_the_last_chunk);
 }
 	
 File::File(const std::string &name, size_t mc) : max_chunk(mc)
