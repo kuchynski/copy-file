@@ -14,33 +14,22 @@ void File::thead_read(File *file)
 	fseek(file->f_in, 0, SEEK_SET);
 	
 	do {
-	// Step 3.1.1 Get free chunk 
-		std::unique_ptr<Chunk> chunk;
-		file->m_fifo.lock();
-		if(file->fifo_free.size()) {
-			chunk = std::move(file->fifo_free.front());
-			file->fifo_free.pop();
-		}
-		file->m_fifo.unlock();
-	// Step 3.1.2 or create it
-		if(chunk == nullptr) {
-			if(file->fifo.size() < file->max_chunk)
-				chunk = std::make_unique<Chunk>();
-			else
-				std::this_thread::sleep_for(1ms);
-		}
+	// Step 3.1 Get free chunk 
+		std::unique_lock<std::mutex> lk(file->m_fifo_free);
+		file->cv_fifo_free.wait(lk, [file]{return !file->fifo_free.empty();});
+		auto chunk = std::move(file->fifo_free.front());
+		file->fifo_free.pop();
+		lk.unlock();
 
-		if(chunk) {
 	// Step 3.2 Read file
-	//			bytes_read == 0 means the end of the file
-			it_is_not_the_last_chunk = chunk->read(file->f_in);
+		it_is_not_the_last_chunk = chunk->read(file->f_in);
+
 	// Step 3.3 Push chunk to the fifo
-			file->m_fifo.lock();
-			file->fifo.push(std::move(chunk));
-			file->m_fifo.unlock();
+		std::unique_lock<std::mutex> lck{file->m_fifo};
+		file->fifo.push(std::move(chunk));
+
 	// Step 3.4 Inform the Write thread about it
-			sem_post(&file->sem);
-		}
+		file->cv_fifo.notify_one();
 	// 			and go read again
 	}while(it_is_not_the_last_chunk);
 }
@@ -49,11 +38,14 @@ File::File(const std::string &name, size_t mc) : max_chunk(mc)
 {
 	// Step 1.1 Open the source file
 	f_in = fopen(name.c_str(), "rb");
-	sem_init(&sem, 0, 0);
+	while(fifo_free.size() < max_chunk) {
+		auto chunk = std::make_unique<Chunk>();
+		fifo_free.push(std::move(chunk));
+	}		
 }
 File::operator bool() const
 {
-	return f_in != nullptr;
+	return (f_in != nullptr) && fifo_free.size();
 }
 
 bool File::copy_to(const std::string &name)
@@ -72,29 +64,25 @@ bool File::copy_to(const std::string &name)
 		while(1) {
 	// Step 4. Write
 	// Step 4.1 Wait for the chunk
-			sem_wait(&sem);
-			std::unique_ptr<Chunk> chunk;
-			m_fifo.lock();
-			if(fifo.size()) {
-				chunk = std::move(fifo.front());
-				fifo.pop();
-			}
-			m_fifo.unlock();
-			
-			if(chunk) { // it looks like always true here
+			std::unique_lock<std::mutex> lk{m_fifo};
+			cv_fifo.wait(lk, [this]{return !fifo.empty();});
+			auto chunk = std::move(fifo.front());
+			fifo.pop();
+			lk.unlock();
+
 	// Step 4.2 Check if it is the end
-				const auto size_copied = chunk->size();
-				if(size_copied == 0) {
-					break;
-				}
-				total_size += size_copied;
+			const auto size_copied = chunk->size();
+			if(size_copied == 0)
+				break;
+			total_size += size_copied;
+
 	// Step 4.3 Write to the output file
-				chunk->write(f_out);
+			chunk->write(f_out);
+
 	// Step 4.4 Push a chunk to the Free Fifo. This chunk will be used again and again
-				m_fifo.lock();
-				fifo_free.push(std::move(chunk));
-				m_fifo.unlock();
-			}	
+			std::unique_lock<std::mutex> lck{m_fifo_free};
+			fifo_free.push(std::move(chunk));
+			cv_fifo_free.notify_one();
 		}
 		
 		fclose(f_out);

@@ -6,7 +6,6 @@
 #include <mutex>
 #include <condition_variable>
 #include "chunk.h"
-#include <semaphore.h>
 
 class File
 {
@@ -15,7 +14,9 @@ private:
 	std::queue<std::unique_ptr<Chunk>> fifo_free;
 	std::FILE* f_in = nullptr;
 	std::mutex m_fifo;
-	sem_t sem;
+	std::mutex m_fifo_free;
+	std::condition_variable cv_fifo;
+	std::condition_variable cv_fifo_free;
 	size_t max_chunk;
 	
 	static void thead_read(File *file);	
