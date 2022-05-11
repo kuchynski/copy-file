@@ -12,7 +12,7 @@ class File
 private:
 	std::queue<std::unique_ptr<Chunk>> fifo;
 	std::queue<std::unique_ptr<Chunk>> fifo_free;
-	std::FILE* f_in = nullptr;
+	std::ifstream f_in;
 	std::mutex m_fifo;
 	std::mutex m_fifo_free;
 	std::condition_variable cv_fifo;

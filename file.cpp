@@ -11,7 +11,7 @@ void File::thead_read(File *file)
 {
 	bool it_is_not_the_last_chunk = true;
 	// Step 3. Read
-	fseek(file->f_in, 0, SEEK_SET);
+	file->f_in.seekg(0, std::ios::beg);
 	
 	do {
 	// Step 3.1 Get free chunk 
@@ -37,7 +37,7 @@ void File::thead_read(File *file)
 File::File(const std::string &name, size_t mc) : max_chunk(mc)
 {
 	// Step 1.1 Open the source file
-	f_in = fopen(name.c_str(), "rb");
+	f_in.open(name, std::ios::in | std::ios::binary);
 	while(fifo_free.size() < max_chunk) {
 		auto chunk = std::make_unique<Chunk>();
 		fifo_free.push(std::move(chunk));
@@ -45,17 +45,17 @@ File::File(const std::string &name, size_t mc) : max_chunk(mc)
 }
 File::operator bool() const
 {
-	return (f_in != nullptr) && fifo_free.size();
+	return f_in.is_open() && fifo_free.size();
 }
 
 bool File::copy_to(const std::string &name)
 {
 	// Step 1.2 Open the destination file
-	std::FILE* f_out = fopen(name.c_str(), "wb");
+	std::ofstream f_out(name, std::ios::out | std::ios::binary);
 	size_t total_size = 0;	
 	
 		
-	if(f_in && f_out) {
+	if(f_in.is_open() && f_out.is_open()) {
 		const auto time_begin = std::chrono::high_resolution_clock::now();
 
 	// Step 2. Start Read thread
@@ -85,7 +85,7 @@ bool File::copy_to(const std::string &name)
 			cv_fifo_free.notify_one();
 		}
 		
-		fclose(f_out);
+		f_out.close();
 		
 	// Step 5. Let's calculate a performance, maybe it's not so bad
 		const auto time_end = std::chrono::high_resolution_clock::now();
@@ -111,6 +111,6 @@ bool File::copy_to(const std::string &name)
 	
 File::~File()
 {
-	if(f_in)
-		fclose(f_in);
+	if(f_in.is_open())
+		f_in.close();
 }
